@@ -1,0 +1,15 @@
+[package]
+name = "translate"
+version = "0.1.0"
+edition = "2021"
+license = "MIT"
+authors = ["Placeholder Vendor"]
+description = "TRANSLATE: mix translation checking plugin scaffold"
+
+[lib]
+crate-type = ["cdylib", "lib"]
+
+[dependencies]
+hound = "3.5.1"
+nih_plug = { git = "https://github.com/robbert-vdh/nih-plug", rev = "28b149ec4d62757d0b448809148a0c3ca6e09a95" }
+nih_plug_egui = { git = "https://github.com/robbert-vdh/nih-plug", rev = "28b149ec4d62757d0b448809148a0c3ca6e09a95", package = "nih_plug_egui" }

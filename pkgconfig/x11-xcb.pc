@@ -1,0 +1,11 @@
+prefix=/usr
+exec_prefix=${prefix}
+libdir=/usr/lib/x86_64-linux-gnu
+includedir=/usr/include
+
+Name: x11-xcb
+Description: Xlib/XCB interface
+Version: 1.7.5
+Requires: x11 xcb
+Libs: -L${libdir} -lX11-xcb
+Cflags:

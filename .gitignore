@@ -1,0 +1,17 @@
+/target
+/.cargo-home
+
+# Rust
+**/*.rs.bk
+
+# IDEs and editors
+/.idea
+/.vscode
+*.swp
+*.swo
+
+# OS files
+.DS_Store
+
+# Local logs / temp files
+*.log
