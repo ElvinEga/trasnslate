@@ -48,7 +48,11 @@ impl Default for TranslateParams {
             editor_state: EguiState::from_size(420, 320),
             preset: EnumParam::new("Preset", PresetMode::Flat),
             decay: FloatParam::new("Decay", 0.5, FloatRange::Linear { min: 0.0, max: 1.0 }),
-            mix: FloatParam::new("Mix", 1.0, FloatRange::Linear { min: 0.0, max: 1.0 }),
+            mix: FloatParam::new("Mix", 1.0, FloatRange::Linear { min: 0.0, max: 1.0 })
+                .with_smoother(SmoothingStyle::Linear(20.0))
+                .with_unit(" %")
+                .with_value_to_string(formatters::v2s_f32_percentage(1))
+                .with_string_to_value(formatters::s2v_f32_percentage()),
             width: FloatParam::new("Width", 1.0, FloatRange::Linear { min: 0.0, max: 2.0 }),
             low: FloatParam::new(
                 "Low",
@@ -70,13 +74,17 @@ impl Default for TranslateParams {
             .with_unit(" dB"),
             output: FloatParam::new(
                 "Output",
-                0.0,
-                FloatRange::Linear {
-                    min: -24.0,
-                    max: 24.0,
+                util::db_to_gain(0.0),
+                FloatRange::Skewed {
+                    min: util::db_to_gain(-24.0),
+                    max: util::db_to_gain(24.0),
+                    factor: FloatRange::gain_skew_factor(-24.0, 24.0),
                 },
             )
-            .with_unit(" dB"),
+            .with_smoother(SmoothingStyle::Logarithmic(20.0))
+            .with_unit(" dB")
+            .with_value_to_string(formatters::v2s_f32_gain_to_db(1))
+            .with_string_to_value(formatters::s2v_f32_gain_to_db()),
             mono: BoolParam::new("Mono", false),
             bypass: BoolParam::new("Bypass", false),
             quick_cycle: BoolParam::new("Quick Cycle", false),
