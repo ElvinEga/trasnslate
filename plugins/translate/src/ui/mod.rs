@@ -23,7 +23,7 @@ pub fn create_editor(params: Arc<TranslateParams>) -> Option<Box<dyn Editor>> {
 fn draw_editor(egui_ctx: &egui::Context, setter: &ParamSetter, params: &TranslateParams) {
     egui::CentralPanel::default().show(egui_ctx, |ui| {
         ui.heading("TRANSLATE");
-        ui.label("Milestone 2: bundled IR + first convolution path");
+        ui.label("Milestone 1 scaffold");
         ui.add_space(8.0);
 
         ui.horizontal(|ui| {
@@ -47,9 +47,6 @@ fn draw_editor(egui_ctx: &egui::Context, setter: &ParamSetter, params: &Translat
             draw_toggle(ui, "Bypass", &params.bypass, setter);
             draw_toggle(ui, "Quick Cycle", &params.quick_cycle, setter);
         });
-
-        ui.add_space(8.0);
-        ui.small("Connected now: Mix, Output, Mono, Bypass");
     });
 }
 
