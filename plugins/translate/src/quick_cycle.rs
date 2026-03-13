@@ -3,7 +3,7 @@ use nih_plug::prelude::Enum;
 use std::array;
 use std::sync::atomic::{AtomicBool, AtomicU32, Ordering};
 
-const PRESET_COUNT: usize = 6;
+const PRESET_COUNT: usize = 9;
 const NONE_INDEX: u32 = u32::MAX;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -157,5 +157,17 @@ fn preset_from_u32(value: u32) -> Option<PresetId> {
         None
     } else {
         Some(PresetId::from_index(value as usize))
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::PRESET_COUNT;
+    use crate::params::PresetId;
+    use nih_plug::prelude::Enum;
+
+    #[test]
+    fn preset_count_matches_enum_variants() {
+        assert_eq!(PRESET_COUNT, PresetId::variants().len());
     }
 }
