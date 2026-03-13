@@ -4,6 +4,7 @@ mod dsp;
 mod ir;
 mod params;
 mod plugin;
+mod quick_cycle;
 mod ui;
 
 pub use plugin::TranslatePlugin;
