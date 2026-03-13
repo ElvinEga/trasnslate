@@ -81,6 +81,10 @@ pub fn preset_category(id: PresetId) -> PresetCategory {
     descriptor(id).category
 }
 
+pub fn preset_filename(id: PresetId) -> &'static str {
+    descriptor(id).file_name
+}
+
 impl BundledIr {
     pub fn load_all() -> Result<Vec<Self>, String> {
         let mut presets = Vec::with_capacity(PresetId::variants().len());
@@ -103,6 +107,7 @@ struct BundledDescriptor {
     id: PresetId,
     category: PresetCategory,
     name: &'static str,
+    file_name: &'static str,
     bytes: &'static [u8],
 }
 
@@ -112,36 +117,42 @@ fn descriptor(id: PresetId) -> BundledDescriptor {
             id,
             category: PresetCategory::Cars,
             name: "Hatchback",
+            file_name: "car-hatchback.wav",
             bytes: CAR_HATCHBACK_IR,
         },
         PresetId::PhoneSpeaker => BundledDescriptor {
             id,
             category: PresetCategory::Phones,
             name: "Phone Speaker",
+            file_name: "phone-speaker.wav",
             bytes: PHONE_SPEAKER_IR,
         },
         PresetId::TabletLaptop => BundledDescriptor {
             id,
             category: PresetCategory::TabletsLaptops,
             name: "Tablet / Laptop",
+            file_name: "tablet-laptop.wav",
             bytes: TABLET_LAPTOP_IR,
         },
         PresetId::ClubBooth => BundledDescriptor {
             id,
             category: PresetCategory::Clubs,
             name: "Club Booth",
+            file_name: "club-booth.wav",
             bytes: CLUB_BOOTH_IR,
         },
         PresetId::ConcertVenue => BundledDescriptor {
             id,
             category: PresetCategory::ConcertVenues,
             name: "Concert Venue",
+            file_name: "concert-venue.wav",
             bytes: CONCERT_VENUE_IR,
         },
         PresetId::MonoRadio => BundledDescriptor {
             id,
             category: PresetCategory::MonoDevices,
             name: "Mono Radio",
+            file_name: "mono-radio.wav",
             bytes: MONO_RADIO_IR,
         },
     }
