@@ -628,6 +628,38 @@ fn next_enabled_slot(
     None
 }
 
+#[cfg(test)]
+mod tests {
+    use super::TranslateProcessor;
+    use crate::ir::IrState;
+    use crate::params::{PresetId, TranslateParams};
+    use crate::quick_cycle::QuickCycleShared;
+    use crate::workflow::WorkflowShared;
+
+    #[test]
+    fn switching_presets_queues_and_activates_a_new_ir() {
+        let params = TranslateParams::default();
+        let quick_cycle = QuickCycleShared::default();
+        let workflow = WorkflowShared::default();
+        let mut ir_state = IrState::default();
+        ir_state.prepare_for_sample_rate(1_000.0);
+
+        let mut processor = TranslateProcessor::default();
+        processor.prepare(1_000.0, &ir_state, &params, &quick_cycle, &workflow);
+
+        let original_len = processor.active_ir_len;
+        processor.sync_ir_target(&ir_state, 1, PresetId::Boombox, 1.0);
+        assert_eq!(processor.pending_preset, Some(PresetId::Boombox));
+        assert_ne!(processor.active_ir_len, 0);
+
+        processor.process_wet_pair(1.0, 1.0, &params, true);
+
+        assert_eq!(processor.pending_preset, None);
+        assert_eq!(processor.current_preset, PresetId::Boombox);
+        assert_ne!(processor.active_ir_len, original_len);
+    }
+}
+
 fn smoothing_coeff(sample_rate: f32, time_ms: f32) -> f32 {
     let samples = (sample_rate.max(1.0) * time_ms.max(0.1) / 1000.0).max(1.0);
     1.0 / samples
