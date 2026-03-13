@@ -1,10 +1,9 @@
 mod bundled;
 
-pub use bundled::{
-    preset_category, preset_name, presets_for_category, BundledIr, PreparedPreset, PresetCategory,
-};
+pub use bundled::{preset_category, preset_name};
 
 use crate::params::PresetId;
+use bundled::{BundledIr, PreparedPreset};
 
 #[derive(Debug, Default)]
 pub struct IrState {
