@@ -1,6 +1,6 @@
 mod bundled;
 
-pub use bundled::{preset_category, preset_name};
+pub use bundled::{preset_category, preset_filename, preset_name};
 
 use crate::params::PresetId;
 use bundled::{BundledIr, PreparedPreset};
@@ -47,5 +47,9 @@ impl IrState {
 
     pub fn max_prepared_len(&self) -> usize {
         self.max_prepared_len.max(1)
+    }
+
+    pub fn prepared_ir_len(&self, id: PresetId) -> usize {
+        self.prepared_preset(id).ir.len()
     }
 }
