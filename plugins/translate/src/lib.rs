@@ -6,6 +6,7 @@ mod params;
 mod plugin;
 mod quick_cycle;
 mod ui;
+mod workflow;
 
 pub use plugin::TranslatePlugin;
 
