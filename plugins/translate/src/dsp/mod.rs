@@ -4,9 +4,17 @@ mod tone;
 use crate::ir::IrState;
 use crate::params::{PresetId, QuickCycleMode, TranslateParams};
 use crate::quick_cycle::{QuickCycleAction, QuickCycleShared, QuickCycleSnapshot};
+use crate::workflow::WorkflowShared;
 use convolver::StereoConvolver;
 use nih_plug::prelude::Buffer;
 use tone::StereoToneStack;
+
+const BYPASS_SMOOTH_MS: f32 = 12.0;
+const LOUDNESS_ATTACK_MS: f32 = 80.0;
+const LOUDNESS_RELEASE_MS: f32 = 350.0;
+const LIMITER_ATTACK_MS: f32 = 1.5;
+const LIMITER_RELEASE_MS: f32 = 120.0;
+const LIMITER_THRESHOLD: f32 = 0.98;
 
 #[derive(Debug)]
 pub struct TranslateProcessor {
@@ -25,8 +33,16 @@ pub struct TranslateProcessor {
     cycle_active: bool,
     cycle_running: bool,
     cycle_current_slot: Option<usize>,
-    cycle_reference_preset: PresetId,
     samples_until_cycle_step: usize,
+    bypass_mix: f32,
+    input_meter_peak: f32,
+    output_meter_peak: f32,
+    loudness_input_power: f32,
+    loudness_output_power: f32,
+    loudness_gain: f32,
+    limiter_gain: f32,
+    limiter_gain_reduction_db: f32,
+    active_ir_len: usize,
 }
 
 impl TranslateProcessor {
@@ -36,6 +52,7 @@ impl TranslateProcessor {
         ir_state: &IrState,
         params: &TranslateParams,
         quick_cycle: &QuickCycleShared,
+        workflow: &WorkflowShared,
     ) {
         self.sample_rate = sample_rate.max(1.0);
 
@@ -52,24 +69,61 @@ impl TranslateProcessor {
         self.cycle_active = false;
         self.cycle_running = false;
         self.cycle_current_slot = None;
-        self.cycle_reference_preset = self.current_preset;
         self.samples_until_cycle_step = self.switch_time_samples(params);
+        self.bypass_mix = if params.bypass.value() { 0.0 } else { 1.0 };
+        self.input_meter_peak = 0.0;
+        self.output_meter_peak = 0.0;
+        self.loudness_input_power = 1.0e-6;
+        self.loudness_output_power = 1.0e-6;
+        self.loudness_gain = 1.0;
+        self.limiter_gain = 1.0;
+        self.limiter_gain_reduction_db = 0.0;
 
         let len = self.shape_into_work_buffers(ir_state, self.current_preset, self.current_decay);
+        self.active_ir_len = len;
         self.current_convolver
             .load_ir(&self.work_left[..len], &self.work_right[..len]);
         self.next_convolver.reset();
         self.tone.reset();
+
         quick_cycle.set_status(Some(self.current_preset), None, false);
+        workflow.update_meters(0.0, 0.0);
+        workflow.update_status(
+            self.sample_rate,
+            0,
+            self.active_ir_len as u32,
+            Some(self.current_preset),
+            self.loudness_gain,
+            self.limiter_gain_reduction_db,
+            params.bypass.value(),
+        );
     }
 
-    pub fn reset(&mut self, quick_cycle: &QuickCycleShared) {
+    pub fn reset(&mut self, quick_cycle: &QuickCycleShared, workflow: &WorkflowShared) {
         self.current_convolver.reset();
         self.next_convolver.reset();
         self.tone.reset();
         self.preset_crossfade_position = self.preset_crossfade_samples.max(1);
         self.cycle_running = false;
+        self.input_meter_peak = 0.0;
+        self.output_meter_peak = 0.0;
+        self.loudness_input_power = 1.0e-6;
+        self.loudness_output_power = 1.0e-6;
+        self.loudness_gain = 1.0;
+        self.limiter_gain = 1.0;
+        self.limiter_gain_reduction_db = 0.0;
+
         quick_cycle.set_status(Some(self.current_preset), None, false);
+        workflow.update_meters(0.0, 0.0);
+        workflow.update_status(
+            self.sample_rate,
+            0,
+            self.active_ir_len as u32,
+            Some(self.current_preset),
+            self.loudness_gain,
+            self.limiter_gain_reduction_db,
+            false,
+        );
     }
 
     pub fn process(
@@ -78,12 +132,8 @@ impl TranslateProcessor {
         params: &TranslateParams,
         ir_state: &IrState,
         quick_cycle: &QuickCycleShared,
+        workflow: &WorkflowShared,
     ) {
-        if params.bypass.value() {
-            self.reset(quick_cycle);
-            return;
-        }
-
         let snapshot = quick_cycle.snapshot();
         self.handle_cycle_action(
             quick_cycle.take_action(),
@@ -110,26 +160,58 @@ impl TranslateProcessor {
 
         let channels = buffer.as_slice();
         if channels.is_empty() {
+            workflow.update_meters(0.0, 0.0);
+            workflow.update_status(
+                self.sample_rate,
+                0,
+                self.active_ir_len as u32,
+                Some(target_preset),
+                self.loudness_gain,
+                self.limiter_gain_reduction_db,
+                params.bypass.value(),
+            );
             return;
         }
 
         let is_mono = params.mono.value();
+        let bypass_target = if params.bypass.value() { 0.0 } else { 1.0 };
+        let bypass_coeff = smoothing_coeff(self.sample_rate, BYPASS_SMOOTH_MS);
+        let loudness_enabled = params.quick_cycle_loudness_lock.value();
+        let limiter_enabled = params.safety_limiter.value();
+        let mut block_input_peak: f32 = 0.0;
+        let mut block_output_peak: f32 = 0.0;
 
         match channels {
             [] => {}
             [mono] => {
                 for sample in mono.iter_mut() {
-                    let input = *sample;
-                    let [wet, _] = self.process_wet_pair(input, input, params, false);
+                    let dry = *sample;
+                    block_input_peak = block_input_peak.max(dry.abs());
+
+                    let [wet, _] = self.process_wet_pair(dry, dry, params, false);
                     let mix = params.mix.smoothed.next();
                     let output_gain = params.output.smoothed.next();
-                    *sample = ((1.0 - mix) * input + mix * wet) * output_gain;
+                    let processed = (1.0 - mix) * dry + mix * wet;
+                    let [processed, _] =
+                        self.apply_loudness_lock(processed, processed, dry, dry, loudness_enabled);
+                    let mut out = processed * output_gain;
+                    let [limited, _, gain_reduction_db] =
+                        self.apply_safety_limiter(out, out, limiter_enabled);
+                    out = limited;
+                    self.limiter_gain_reduction_db = gain_reduction_db;
+
+                    self.bypass_mix += (bypass_target - self.bypass_mix) * bypass_coeff;
+                    let final_out = dry * (1.0 - self.bypass_mix) + out * self.bypass_mix;
+                    *sample = final_out;
+                    block_output_peak = block_output_peak.max(final_out.abs());
                 }
             }
             [left, right, ..] => {
                 for index in 0..left.len() {
                     let dry_left = left[index];
                     let dry_right = right[index];
+                    block_input_peak = block_input_peak.max(dry_left.abs().max(dry_right.abs()));
+
                     let (input_left, input_right) = if is_mono {
                         let mono = 0.5 * (dry_left + dry_right);
                         (mono, mono)
@@ -141,12 +223,47 @@ impl TranslateProcessor {
                         self.process_wet_pair(input_left, input_right, params, true);
                     let mix = params.mix.smoothed.next();
                     let output_gain = params.output.smoothed.next();
+                    let processed_left = (1.0 - mix) * input_left + mix * wet_left;
+                    let processed_right = (1.0 - mix) * input_right + mix * wet_right;
+                    let [comp_left, comp_right] = self.apply_loudness_lock(
+                        processed_left,
+                        processed_right,
+                        input_left,
+                        input_right,
+                        loudness_enabled,
+                    );
+                    let out_left = comp_left * output_gain;
+                    let out_right = comp_right * output_gain;
+                    let [limited_left, limited_right, gain_reduction_db] =
+                        self.apply_safety_limiter(out_left, out_right, limiter_enabled);
+                    self.limiter_gain_reduction_db = gain_reduction_db;
 
-                    left[index] = ((1.0 - mix) * input_left + mix * wet_left) * output_gain;
-                    right[index] = ((1.0 - mix) * input_right + mix * wet_right) * output_gain;
+                    self.bypass_mix += (bypass_target - self.bypass_mix) * bypass_coeff;
+                    let final_left =
+                        dry_left * (1.0 - self.bypass_mix) + limited_left * self.bypass_mix;
+                    let final_right =
+                        dry_right * (1.0 - self.bypass_mix) + limited_right * self.bypass_mix;
+
+                    left[index] = final_left;
+                    right[index] = final_right;
+                    block_output_peak =
+                        block_output_peak.max(final_left.abs().max(final_right.abs()));
                 }
             }
         }
+
+        self.input_meter_peak = (self.input_meter_peak * 0.9).max(block_input_peak);
+        self.output_meter_peak = (self.output_meter_peak * 0.9).max(block_output_peak);
+        workflow.update_meters(self.input_meter_peak, self.output_meter_peak);
+        workflow.update_status(
+            self.sample_rate,
+            0,
+            self.active_ir_len as u32,
+            Some(target_preset),
+            self.loudness_gain,
+            self.limiter_gain_reduction_db,
+            params.bypass.value(),
+        );
     }
 
     fn process_wet_pair(
@@ -201,6 +318,74 @@ impl TranslateProcessor {
         [wet_left, wet_right]
     }
 
+    fn apply_loudness_lock(
+        &mut self,
+        left: f32,
+        right: f32,
+        ref_left: f32,
+        ref_right: f32,
+        enabled: bool,
+    ) -> [f32; 2] {
+        let input_power = 0.5 * (ref_left * ref_left + ref_right * ref_right);
+        let output_power = 0.5 * (left * left + right * right);
+        let attack = smoothing_coeff(self.sample_rate, LOUDNESS_ATTACK_MS);
+        let release = smoothing_coeff(self.sample_rate, LOUDNESS_RELEASE_MS);
+
+        self.loudness_input_power += (input_power - self.loudness_input_power) * attack;
+        self.loudness_output_power += (output_power - self.loudness_output_power) * attack;
+
+        let target_gain = if enabled && self.loudness_input_power > 1.0e-6 {
+            (self.loudness_input_power / self.loudness_output_power.max(1.0e-6))
+                .sqrt()
+                .clamp(0.25, 4.0)
+        } else {
+            1.0
+        };
+        let coeff = if target_gain < self.loudness_gain {
+            attack
+        } else {
+            release
+        };
+        self.loudness_gain += (target_gain - self.loudness_gain) * coeff;
+
+        [left * self.loudness_gain, right * self.loudness_gain]
+    }
+
+    fn apply_safety_limiter(&mut self, left: f32, right: f32, enabled: bool) -> [f32; 3] {
+        if !enabled {
+            self.limiter_gain +=
+                (1.0 - self.limiter_gain) * smoothing_coeff(self.sample_rate, LIMITER_RELEASE_MS);
+            self.limiter_gain_reduction_db = 0.0;
+            return [left, right, 0.0];
+        }
+
+        let peak = left.abs().max(right.abs());
+        let desired_gain = if peak > LIMITER_THRESHOLD {
+            (LIMITER_THRESHOLD / peak).clamp(0.0, 1.0)
+        } else {
+            1.0
+        };
+
+        let coeff = if desired_gain < self.limiter_gain {
+            smoothing_coeff(self.sample_rate, LIMITER_ATTACK_MS)
+        } else {
+            smoothing_coeff(self.sample_rate, LIMITER_RELEASE_MS)
+        };
+        self.limiter_gain += (desired_gain - self.limiter_gain) * coeff;
+
+        let gain_reduction_db = if self.limiter_gain < 0.999 {
+            20.0 * self.limiter_gain.max(1.0e-6).log10().abs()
+        } else {
+            0.0
+        };
+
+        [
+            left * self.limiter_gain,
+            right * self.limiter_gain,
+            gain_reduction_db,
+        ]
+    }
+
     fn handle_cycle_action(
         &mut self,
         action: QuickCycleAction,
@@ -241,17 +426,13 @@ impl TranslateProcessor {
     }
 
     fn step_cycle(&mut self, snapshot: &QuickCycleSnapshot, base_preset: PresetId, forward: bool) {
-        if let Some(next_slot) = next_enabled_slot(
-            snapshot,
-            self.cycle_current_slot,
-            forward,
-            self.cycle_active.then_some(base_preset),
-        ) {
+        if let Some(next_slot) = next_enabled_slot(snapshot, self.cycle_current_slot, forward) {
             if !self.cycle_active {
-                self.cycle_reference_preset = base_preset;
                 self.cycle_active = true;
             }
+
             self.cycle_current_slot = Some(next_slot);
+            self.current_preset = self.effective_preset(base_preset, snapshot);
         }
     }
 
@@ -273,13 +454,7 @@ impl TranslateProcessor {
 
     fn pause_or_stop_cycle(&mut self, params: &TranslateParams) {
         self.cycle_running = false;
-        if params.quick_cycle_mode.value() == QuickCycleMode::Manual
-            && params.quick_cycle_return_to_reference.value()
-        {
-            self.return_to_reference();
-        } else if params.quick_cycle_mode.value() == QuickCycleMode::Timed
-            && params.quick_cycle_return_to_reference.value()
-        {
+        if params.quick_cycle_return_to_reference.value() {
             self.return_to_reference();
         }
     }
@@ -304,11 +479,12 @@ impl TranslateProcessor {
         base_preset: PresetId,
     ) -> Option<PresetId> {
         if let Some(slot) = self.cycle_current_slot {
-            next_enabled_slot(snapshot, Some(slot), true, None)
-                .map(|next| snapshot.slots[next].preset)
+            next_enabled_slot(snapshot, Some(slot), true).map(|next| snapshot.slots[next].preset)
         } else {
-            next_enabled_slot(snapshot, None, true, Some(base_preset))
-                .map(|next| snapshot.slots[next].preset)
+            next_enabled_slot(snapshot, None, true).map(|next| {
+                let _ = base_preset;
+                snapshot.slots[next].preset
+            })
         }
     }
 
@@ -325,6 +501,8 @@ impl TranslateProcessor {
         } else {
             self.current_decay
         };
+
+        self.active_ir_len = ir_state.prepared_ir_len(preset);
 
         if queued_preset == preset && (queued_decay - decay).abs() < 1.0e-3 {
             return;
@@ -389,8 +567,16 @@ impl Default for TranslateProcessor {
             cycle_active: false,
             cycle_running: false,
             cycle_current_slot: None,
-            cycle_reference_preset: PresetId::CarHatchback,
             samples_until_cycle_step: 1,
+            bypass_mix: 1.0,
+            input_meter_peak: 0.0,
+            output_meter_peak: 0.0,
+            loudness_input_power: 1.0e-6,
+            loudness_output_power: 1.0e-6,
+            loudness_gain: 1.0,
+            limiter_gain: 1.0,
+            limiter_gain_reduction_db: 0.0,
+            active_ir_len: 0,
         }
     }
 }
@@ -419,7 +605,6 @@ fn next_enabled_slot(
     snapshot: &QuickCycleSnapshot,
     current_slot: Option<usize>,
     forward: bool,
-    _base_preset: Option<PresetId>,
 ) -> Option<usize> {
     if snapshot.slots.iter().all(|slot| !slot.enabled) {
         return None;
@@ -441,4 +626,9 @@ fn next_enabled_slot(
     }
 
     None
+}
+
+fn smoothing_coeff(sample_rate: f32, time_ms: f32) -> f32 {
+    let samples = (sample_rate.max(1.0) * time_ms.max(0.1) / 1000.0).max(1.0);
+    1.0 / samples
 }
