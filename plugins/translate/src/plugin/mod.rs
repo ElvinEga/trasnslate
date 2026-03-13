@@ -3,6 +3,7 @@ use crate::ir::IrState;
 use crate::params::TranslateParams;
 use crate::quick_cycle::QuickCycleShared;
 use crate::ui;
+use crate::workflow::WorkflowShared;
 use nih_plug::prelude::*;
 use std::num::NonZeroU32;
 use std::sync::Arc;
@@ -12,6 +13,7 @@ pub struct TranslatePlugin {
     processor: TranslateProcessor,
     ir_state: IrState,
     quick_cycle: Arc<QuickCycleShared>,
+    workflow: Arc<WorkflowShared>,
 }
 
 impl Default for TranslatePlugin {
@@ -21,6 +23,7 @@ impl Default for TranslatePlugin {
             processor: TranslateProcessor::default(),
             ir_state: IrState::default(),
             quick_cycle: Arc::new(QuickCycleShared::default()),
+            workflow: Arc::new(WorkflowShared::default()),
         }
     }
 }
@@ -56,7 +59,11 @@ impl Plugin for TranslatePlugin {
     }
 
     fn editor(&mut self, _async_executor: AsyncExecutor<Self>) -> Option<Box<dyn Editor>> {
-        ui::create_editor(self.params.clone(), self.quick_cycle.clone())
+        ui::create_editor(
+            self.params.clone(),
+            self.quick_cycle.clone(),
+            self.workflow.clone(),
+        )
     }
 
     fn initialize(
@@ -72,12 +79,14 @@ impl Plugin for TranslatePlugin {
             &self.ir_state,
             self.params.as_ref(),
             self.quick_cycle.as_ref(),
+            self.workflow.as_ref(),
         );
         true
     }
 
     fn reset(&mut self) {
-        self.processor.reset(self.quick_cycle.as_ref());
+        self.processor
+            .reset(self.quick_cycle.as_ref(), self.workflow.as_ref());
     }
 
     fn process(
@@ -91,6 +100,7 @@ impl Plugin for TranslatePlugin {
             self.params.as_ref(),
             &self.ir_state,
             self.quick_cycle.as_ref(),
+            self.workflow.as_ref(),
         );
         ProcessStatus::Normal
     }
