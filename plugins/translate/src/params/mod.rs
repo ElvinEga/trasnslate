@@ -16,9 +16,18 @@ pub enum PresetId {
     #[id = "club-booth"]
     #[name = "Club Booth"]
     ClubBooth,
+    #[id = "club-1"]
+    #[name = "Club 1"]
+    Club1,
+    #[id = "club-2"]
+    #[name = "Club 2"]
+    Club2,
     #[id = "concert-venue"]
     #[name = "Concert Venue"]
     ConcertVenue,
+    #[id = "boombox"]
+    #[name = "Boombox"]
+    Boombox,
     #[id = "mono-radio"]
     #[name = "Mono Radio"]
     MonoRadio,
