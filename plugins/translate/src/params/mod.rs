@@ -3,16 +3,37 @@ use nih_plug_egui::EguiState;
 use std::sync::Arc;
 
 #[derive(Enum, Clone, Copy, Debug, PartialEq, Eq)]
-pub enum PresetMode {
-    #[id = "flat"]
-    Flat,
-    #[id = "nearfield"]
-    Nearfield,
-    #[id = "small-speaker"]
-    #[name = "Small Speaker"]
-    SmallSpeaker,
-    #[id = "consumer"]
-    Consumer,
+pub enum PresetId {
+    #[id = "car-hatchback"]
+    #[name = "Hatchback"]
+    CarHatchback,
+    #[id = "phone-speaker"]
+    #[name = "Phone Speaker"]
+    PhoneSpeaker,
+    #[id = "tablet-laptop"]
+    #[name = "Tablet / Laptop"]
+    TabletLaptop,
+    #[id = "club-booth"]
+    #[name = "Club Booth"]
+    ClubBooth,
+    #[id = "concert-venue"]
+    #[name = "Concert Venue"]
+    ConcertVenue,
+    #[id = "mono-radio"]
+    #[name = "Mono Radio"]
+    MonoRadio,
+}
+
+impl PresetId {
+    pub fn previous(self) -> Self {
+        let count = Self::variants().len();
+        Self::from_index((self.to_index() + count - 1) % count)
+    }
+
+    pub fn next(self) -> Self {
+        let count = Self::variants().len();
+        Self::from_index((self.to_index() + 1) % count)
+    }
 }
 
 #[derive(Params)]
@@ -21,7 +42,7 @@ pub struct TranslateParams {
     pub editor_state: Arc<EguiState>,
 
     #[id = "preset"]
-    pub preset: EnumParam<PresetMode>,
+    pub preset: EnumParam<PresetId>,
     #[id = "decay"]
     pub decay: FloatParam,
     #[id = "mix"]
@@ -45,15 +66,21 @@ pub struct TranslateParams {
 impl Default for TranslateParams {
     fn default() -> Self {
         Self {
-            editor_state: EguiState::from_size(420, 320),
-            preset: EnumParam::new("Preset", PresetMode::Flat),
-            decay: FloatParam::new("Decay", 0.5, FloatRange::Linear { min: 0.0, max: 1.0 }),
+            editor_state: EguiState::from_size(540, 420),
+            preset: EnumParam::new("Preset", PresetId::CarHatchback),
+            decay: FloatParam::new("Decay", 1.0, FloatRange::Linear { min: 0.1, max: 1.0 })
+                .with_smoother(SmoothingStyle::Linear(50.0))
+                .with_unit(" %")
+                .with_value_to_string(formatters::v2s_f32_percentage(0))
+                .with_string_to_value(formatters::s2v_f32_percentage()),
             mix: FloatParam::new("Mix", 1.0, FloatRange::Linear { min: 0.0, max: 1.0 })
                 .with_smoother(SmoothingStyle::Linear(20.0))
                 .with_unit(" %")
                 .with_value_to_string(formatters::v2s_f32_percentage(1))
                 .with_string_to_value(formatters::s2v_f32_percentage()),
-            width: FloatParam::new("Width", 1.0, FloatRange::Linear { min: 0.0, max: 2.0 }),
+            width: FloatParam::new("Width", 1.0, FloatRange::Linear { min: 0.0, max: 2.0 })
+                .with_smoother(SmoothingStyle::Linear(20.0))
+                .with_value_to_string(Arc::new(|value| format!("{value:.2}x"))),
             low: FloatParam::new(
                 "Low",
                 0.0,
@@ -62,6 +89,7 @@ impl Default for TranslateParams {
                     max: 12.0,
                 },
             )
+            .with_smoother(SmoothingStyle::Linear(20.0))
             .with_unit(" dB"),
             high: FloatParam::new(
                 "High",
@@ -71,6 +99,7 @@ impl Default for TranslateParams {
                     max: 12.0,
                 },
             )
+            .with_smoother(SmoothingStyle::Linear(20.0))
             .with_unit(" dB"),
             output: FloatParam::new(
                 "Output",
