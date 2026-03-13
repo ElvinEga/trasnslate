@@ -16,11 +16,10 @@ Optimized library build:
 cargo build --release -p translate
 ```
 
-Preferred plugin bundle build with NIH-plug's bundler:
+Preferred plugin bundle build with the workspace `xtask`:
 
 ```sh
-cargo install --git https://github.com/robbert-vdh/nih-plug.git cargo-nih-plug
-cargo nih-plug bundle translate --release
+cargo run --release --package xtask -- bundle translate --release
 ```
 
 On Linux, the final link step needs the unversioned `libX11-xcb.so` development library in addition to the runtime `.so.1`. On Debian/Ubuntu systems this is typically provided by `libx11-xcb-dev`.
@@ -73,9 +72,15 @@ Recommended release flow:
 1. Run `cargo fmt`
 2. Run `cargo check`
 3. Run `cargo build --release -p translate`
-4. Run `cargo nih-plug bundle translate --release`
-5. Inspect `target/bundled/`
+4. Run `cargo run --release --package xtask -- bundle translate --release`
+5. Inspect `target/bundled/TRANSLATE.clap` and `target/bundled/TRANSLATE.vst3`
 6. Copy the resulting `.clap` and `.vst3` artifacts into local host plugin folders for validation
+
+If you want the shorter alias form, this repo also defines:
+
+```sh
+cargo xtask bundle translate --release
+```
 
 Typical plugin install locations:
 
