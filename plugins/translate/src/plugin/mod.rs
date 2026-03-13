@@ -114,9 +114,10 @@ impl ClapPlugin for TranslatePlugin {
     const CLAP_SUPPORT_URL: Option<&'static str> = Some(Self::URL);
     const CLAP_FEATURES: &'static [ClapFeature] = &[
         ClapFeature::AudioEffect,
-        ClapFeature::Stereo,
-        ClapFeature::Mono,
         ClapFeature::Utility,
+        ClapFeature::Mixing,
+        ClapFeature::Mastering,
+        ClapFeature::Stereo,
     ];
 }
 
