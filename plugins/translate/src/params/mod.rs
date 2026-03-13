@@ -63,6 +63,8 @@ pub struct TranslateParams {
     pub quick_cycle_loudness_lock: BoolParam,
     #[id = "qc-return-ref"]
     pub quick_cycle_return_to_reference: BoolParam,
+    #[id = "safety-limit"]
+    pub safety_limiter: BoolParam,
 }
 
 impl Default for TranslateParams {
@@ -136,6 +138,7 @@ impl Default for TranslateParams {
             .with_unit(" ms"),
             quick_cycle_loudness_lock: BoolParam::new("Loudness Lock", false),
             quick_cycle_return_to_reference: BoolParam::new("Return to Reference", true),
+            safety_limiter: BoolParam::new("Safety Limiter", true),
         }
     }
 }
