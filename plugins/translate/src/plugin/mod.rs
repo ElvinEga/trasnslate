@@ -62,8 +62,13 @@ impl Plugin for TranslatePlugin {
         buffer_config: &BufferConfig,
         _context: &mut impl InitContext<Self>,
     ) -> bool {
-        self.processor
-            .prepare(buffer_config.sample_rate, self.ir_state.active());
+        self.ir_state
+            .prepare_for_sample_rate(buffer_config.sample_rate);
+        self.processor.prepare(
+            buffer_config.sample_rate,
+            &self.ir_state,
+            self.params.as_ref(),
+        );
         true
     }
 
@@ -77,7 +82,8 @@ impl Plugin for TranslatePlugin {
         _aux: &mut AuxiliaryBuffers,
         _context: &mut impl ProcessContext<Self>,
     ) -> ProcessStatus {
-        self.processor.process(buffer, self.params.as_ref());
+        self.processor
+            .process(buffer, self.params.as_ref(), &self.ir_state);
         ProcessStatus::Normal
     }
 }
