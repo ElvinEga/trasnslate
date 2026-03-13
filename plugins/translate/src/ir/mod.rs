@@ -53,3 +53,52 @@ impl IrState {
         self.prepared_preset(id).ir.len()
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::IrState;
+    use crate::ir::bundled::preset_filename;
+    use crate::params::PresetId;
+    use nih_plug::prelude::Enum;
+    use std::collections::HashSet;
+
+    #[test]
+    fn every_preset_maps_to_a_unique_file_and_ir() {
+        let mut state = IrState::default();
+        state.prepare_for_sample_rate(44_100.0);
+
+        let mut files = HashSet::new();
+        let mut signatures = HashSet::new();
+
+        for preset_index in 0..PresetId::variants().len() {
+            let preset = PresetId::from_index(preset_index);
+            let prepared = state.prepared_preset(preset);
+            assert!(
+                files.insert(preset_filename(preset)),
+                "duplicate bundled IR filename for {preset:?}"
+            );
+
+            let signature = (
+                prepared.ir.len(),
+                prepared
+                    .ir
+                    .left
+                    .iter()
+                    .take(8)
+                    .map(|sample| sample.to_bits())
+                    .collect::<Vec<_>>(),
+                prepared
+                    .ir
+                    .right
+                    .iter()
+                    .take(8)
+                    .map(|sample| sample.to_bits())
+                    .collect::<Vec<_>>(),
+            );
+            assert!(
+                signatures.insert(signature),
+                "prepared IR signature unexpectedly duplicated for {preset:?}"
+            );
+        }
+    }
+}
