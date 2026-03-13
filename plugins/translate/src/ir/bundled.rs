@@ -21,15 +21,6 @@ pub enum PresetCategory {
 }
 
 impl PresetCategory {
-    pub const ALL: [Self; 6] = [
-        Self::Cars,
-        Self::Phones,
-        Self::TabletsLaptops,
-        Self::Clubs,
-        Self::ConcertVenues,
-        Self::MonoDevices,
-    ];
-
     pub fn label(self) -> &'static str {
         match self {
             Self::Cars => "Cars",
@@ -88,17 +79,6 @@ pub fn preset_name(id: PresetId) -> &'static str {
 
 pub fn preset_category(id: PresetId) -> PresetCategory {
     descriptor(id).category
-}
-
-pub fn presets_for_category(category: PresetCategory) -> &'static [PresetId] {
-    match category {
-        PresetCategory::Cars => &[PresetId::CarHatchback],
-        PresetCategory::Phones => &[PresetId::PhoneSpeaker],
-        PresetCategory::TabletsLaptops => &[PresetId::TabletLaptop],
-        PresetCategory::Clubs => &[PresetId::ClubBooth],
-        PresetCategory::ConcertVenues => &[PresetId::ConcertVenue],
-        PresetCategory::MonoDevices => &[PresetId::MonoRadio],
-    }
 }
 
 impl BundledIr {
