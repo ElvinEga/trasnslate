@@ -108,7 +108,8 @@ impl Plugin for TranslatePlugin {
 
 impl ClapPlugin for TranslatePlugin {
     const CLAP_ID: &'static str = "com.placeholdervendor.translate";
-    const CLAP_DESCRIPTION: Option<&'static str> = Some("Mix translation checking plugin scaffold");
+    const CLAP_DESCRIPTION: Option<&'static str> =
+        Some("Mix translation checking plugin with bundled IR presets and workflow tools");
     const CLAP_MANUAL_URL: Option<&'static str> = Some(Self::URL);
     const CLAP_SUPPORT_URL: Option<&'static str> = Some(Self::URL);
     const CLAP_FEATURES: &'static [ClapFeature] = &[
