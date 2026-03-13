@@ -7,7 +7,10 @@ const CAR_HATCHBACK_IR: &[u8] = include_bytes!("../../../../assets/irs/car-hatch
 const PHONE_SPEAKER_IR: &[u8] = include_bytes!("../../../../assets/irs/phone-speaker.wav");
 const TABLET_LAPTOP_IR: &[u8] = include_bytes!("../../../../assets/irs/tablet-laptop.wav");
 const CLUB_BOOTH_IR: &[u8] = include_bytes!("../../../../assets/irs/club-booth.wav");
+const CLUB_1_IR: &[u8] = include_bytes!("../../../../assets/irs/club1.wav");
+const CLUB_2_IR: &[u8] = include_bytes!("../../../../assets/irs/club2.wav");
 const CONCERT_VENUE_IR: &[u8] = include_bytes!("../../../../assets/irs/concert-venue.wav");
+const BOOMBOX_IR: &[u8] = include_bytes!("../../../../assets/irs/boombox.wav");
 const MONO_RADIO_IR: &[u8] = include_bytes!("../../../../assets/irs/mono-radio.wav");
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -93,7 +96,10 @@ impl BundledIr {
             PresetId::PhoneSpeaker,
             PresetId::TabletLaptop,
             PresetId::ClubBooth,
+            PresetId::Club1,
+            PresetId::Club2,
             PresetId::ConcertVenue,
+            PresetId::Boombox,
             PresetId::MonoRadio,
         ] {
             presets.push(load_one(id)?);
@@ -141,12 +147,33 @@ fn descriptor(id: PresetId) -> BundledDescriptor {
             file_name: "club-booth.wav",
             bytes: CLUB_BOOTH_IR,
         },
+        PresetId::Club1 => BundledDescriptor {
+            id,
+            category: PresetCategory::Clubs,
+            name: "Club 1",
+            file_name: "club1.wav",
+            bytes: CLUB_1_IR,
+        },
+        PresetId::Club2 => BundledDescriptor {
+            id,
+            category: PresetCategory::Clubs,
+            name: "Club 2",
+            file_name: "club2.wav",
+            bytes: CLUB_2_IR,
+        },
         PresetId::ConcertVenue => BundledDescriptor {
             id,
             category: PresetCategory::ConcertVenues,
             name: "Concert Venue",
             file_name: "concert-venue.wav",
             bytes: CONCERT_VENUE_IR,
+        },
+        PresetId::Boombox => BundledDescriptor {
+            id,
+            category: PresetCategory::MonoDevices,
+            name: "Boombox",
+            file_name: "boombox.wav",
+            bytes: BOOMBOX_IR,
         },
         PresetId::MonoRadio => BundledDescriptor {
             id,
