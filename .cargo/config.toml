@@ -1,2 +1,5 @@
 [env]
 PKG_CONFIG_PATH = { value = "pkgconfig", relative = true }
+
+[alias]
+xtask = "run --package xtask --release --"
