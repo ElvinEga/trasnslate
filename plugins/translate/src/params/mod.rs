@@ -24,16 +24,10 @@ pub enum PresetId {
     MonoRadio,
 }
 
-impl PresetId {
-    pub fn previous(self) -> Self {
-        let count = Self::variants().len();
-        Self::from_index((self.to_index() + count - 1) % count)
-    }
-
-    pub fn next(self) -> Self {
-        let count = Self::variants().len();
-        Self::from_index((self.to_index() + 1) % count)
-    }
+#[derive(Enum, Clone, Copy, Debug, PartialEq, Eq)]
+pub enum QuickCycleMode {
+    Manual,
+    Timed,
 }
 
 #[derive(Params)]
@@ -59,14 +53,22 @@ pub struct TranslateParams {
     pub mono: BoolParam,
     #[id = "bypass"]
     pub bypass: BoolParam,
-    #[id = "quick-cycle"]
-    pub quick_cycle: BoolParam,
+    #[id = "qc-mode"]
+    pub quick_cycle_mode: EnumParam<QuickCycleMode>,
+    #[id = "qc-switch-ms"]
+    pub quick_cycle_switch_time_ms: IntParam,
+    #[id = "qc-fade-ms"]
+    pub quick_cycle_crossfade_ms: IntParam,
+    #[id = "qc-lock"]
+    pub quick_cycle_loudness_lock: BoolParam,
+    #[id = "qc-return-ref"]
+    pub quick_cycle_return_to_reference: BoolParam,
 }
 
 impl Default for TranslateParams {
     fn default() -> Self {
         Self {
-            editor_state: EguiState::from_size(540, 420),
+            editor_state: EguiState::from_size(640, 520),
             preset: EnumParam::new("Preset", PresetId::CarHatchback),
             decay: FloatParam::new("Decay", 1.0, FloatRange::Linear { min: 0.1, max: 1.0 })
                 .with_smoother(SmoothingStyle::Linear(50.0))
@@ -116,7 +118,24 @@ impl Default for TranslateParams {
             .with_string_to_value(formatters::s2v_f32_gain_to_db()),
             mono: BoolParam::new("Mono", false),
             bypass: BoolParam::new("Bypass", false),
-            quick_cycle: BoolParam::new("Quick Cycle", false),
+            quick_cycle_mode: EnumParam::new("Quick Cycle Mode", QuickCycleMode::Manual),
+            quick_cycle_switch_time_ms: IntParam::new(
+                "Switch Time",
+                2500,
+                IntRange::Linear {
+                    min: 250,
+                    max: 10_000,
+                },
+            )
+            .with_unit(" ms"),
+            quick_cycle_crossfade_ms: IntParam::new(
+                "Crossfade Time",
+                30,
+                IntRange::Linear { min: 5, max: 200 },
+            )
+            .with_unit(" ms"),
+            quick_cycle_loudness_lock: BoolParam::new("Loudness Lock", false),
+            quick_cycle_return_to_reference: BoolParam::new("Return to Reference", true),
         }
     }
 }
