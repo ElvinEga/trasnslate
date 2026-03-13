@@ -4,7 +4,8 @@ version = "0.1.0"
 edition = "2021"
 license = "MIT"
 authors = ["Placeholder Vendor"]
-description = "TRANSLATE: mix translation checking plugin scaffold"
+description = "TRANSLATE: mix translation checking audio plugin"
+readme = "../../README.md"
 
 [lib]
 crate-type = ["cdylib", "lib"]
