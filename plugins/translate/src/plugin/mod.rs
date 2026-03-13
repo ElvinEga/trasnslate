@@ -1,6 +1,7 @@
 use crate::dsp::TranslateProcessor;
 use crate::ir::IrState;
 use crate::params::TranslateParams;
+use crate::quick_cycle::QuickCycleShared;
 use crate::ui;
 use nih_plug::prelude::*;
 use std::num::NonZeroU32;
@@ -10,6 +11,7 @@ pub struct TranslatePlugin {
     params: Arc<TranslateParams>,
     processor: TranslateProcessor,
     ir_state: IrState,
+    quick_cycle: Arc<QuickCycleShared>,
 }
 
 impl Default for TranslatePlugin {
@@ -18,6 +20,7 @@ impl Default for TranslatePlugin {
             params: Arc::new(TranslateParams::default()),
             processor: TranslateProcessor::default(),
             ir_state: IrState::default(),
+            quick_cycle: Arc::new(QuickCycleShared::default()),
         }
     }
 }
@@ -53,7 +56,7 @@ impl Plugin for TranslatePlugin {
     }
 
     fn editor(&mut self, _async_executor: AsyncExecutor<Self>) -> Option<Box<dyn Editor>> {
-        ui::create_editor(self.params.clone())
+        ui::create_editor(self.params.clone(), self.quick_cycle.clone())
     }
 
     fn initialize(
@@ -68,12 +71,13 @@ impl Plugin for TranslatePlugin {
             buffer_config.sample_rate,
             &self.ir_state,
             self.params.as_ref(),
+            self.quick_cycle.as_ref(),
         );
         true
     }
 
     fn reset(&mut self) {
-        self.processor.reset();
+        self.processor.reset(self.quick_cycle.as_ref());
     }
 
     fn process(
@@ -82,8 +86,12 @@ impl Plugin for TranslatePlugin {
         _aux: &mut AuxiliaryBuffers,
         _context: &mut impl ProcessContext<Self>,
     ) -> ProcessStatus {
-        self.processor
-            .process(buffer, self.params.as_ref(), &self.ir_state);
+        self.processor.process(
+            buffer,
+            self.params.as_ref(),
+            &self.ir_state,
+            self.quick_cycle.as_ref(),
+        );
         ProcessStatus::Normal
     }
 }
