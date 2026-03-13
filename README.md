@@ -48,7 +48,7 @@ Current plugin metadata:
 
 - Name: `TRANSLATE`
 - Vendor: `Placeholder Vendor`
-- Version: `0.1.0`
+- Version: `0.1.1`
 - CLAP ID: `com.placeholdervendor.translate`
 - VST3 class ID: `TranslatePlugin!`
 
@@ -97,7 +97,7 @@ Load and discovery:
 
 - Confirm CLAP build is discovered by a CLAP-capable host
 - Confirm VST3 build is discovered by a VST3-capable host
-- Confirm plugin metadata shows `TRANSLATE` version `0.1.0`
+- Confirm plugin metadata shows `TRANSLATE` version `0.1.1`
 
 Editor:
 
